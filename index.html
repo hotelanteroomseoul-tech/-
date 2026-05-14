@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gallery</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Helvetica Neue', Arial, sans-serif; }
+  #app { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+  .theme { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 0.5s ease; }
+  .theme.active { opacity: 1; pointer-events: auto; }
+  .slide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.4s ease; pointer-events: none; }
+  .slide.active { opacity: 1; pointer-events: auto; }
+  .slide img { width: 100%; height: 100%; object-fit: contain; }
+  #timer-selector { position: absolute; top: 24px; left: 24px; z-index: 200; display: flex; gap: 8px; }
+  .timer-sel-btn { background: rgba(0,0,0,0.5); border: 0.5px solid rgba(255,255,255,0.2); border-radius: 12px; color: rgba(255,255,255,0.5); font-size: 11px; letter-spacing: 1px; padding: 8px 14px; cursor: pointer; transition: all 0.15s; }
+  .timer-sel-btn.active { border-color: rgba(255,255,255,0.6); color: #fff; background: rgba(0,0,0,0.7); }
+  #timer-box { position: absolute; top: 72px; left: 24px; z-index: 100; background: rgba(0,0,0,0.6); border-radius: 20px; padding: 18px 28px; display: none; flex-direction: column; align-items: flex-start; gap: 10px; min-width: 180px; }
+  #timer-box.open { display: flex; }
+  .timer-display { font-size: 72px; font-weight: 200; color: #fff; letter-spacing: 4px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .timer-display.warning { color: #EF9F27; }
+  .timer-display.danger { color: #E24B4A; }
+  .timer-bar { width: 100%; height: 2px; background: rgba(255,255,255,0.15); border-radius: 2px; overflow: hidden; }
+  .timer-fill { height: 100%; background: rgba(255,255,255,0.6); border-radius: 2px; transition: width 1s linear; width: 100%; }
+  .timer-fill.warning { background: #EF9F27; }
+  .timer-fill.danger { background: #E24B4A; }
+  .timer-controls { display: flex; gap: 6px; }
+  .t-btn { background: rgba(255,255,255,0.1); border: none; border-radius: 6px; color: rgba(255,255,255,0.6); font-size: 11px; padding: 4px 8px; cursor: pointer; }
+  .t-btn:active { background: rgba(255,255,255,0.2); }
+  .nav-prev, .nav-next { position: absolute; top: 50%; transform: translateY(-50%); z-index: 100; background: rgba(0,0,0,0.35); border: none; color: rgba(255,255,255,0.7); width: 52px; height: 52px; border-radius: 50%; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .nav-prev { left: 20px; }
+  .nav-next { right: 20px; }
+  .nav-prev:active, .nav-next:active { background: rgba(0,0,0,0.6); }
+  .nav-prev:disabled, .nav-next:disabled { opacity: 0.2; pointer-events: none; }
+  .dots { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 100; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.3); cursor: pointer; transition: background 0.2s, transform 0.2s; }
+  .dot.active { background: #fff; transform: scale(1.2); }
+  .slide-counter { position: absolute; bottom: 24px; right: 24px; font-size: 12px; color: rgba(255,255,255,0.3); letter-spacing: 1px; z-index: 100; }
+  #fullscreen-btn { position: absolute; top: 24px; right: 24px; z-index: 200; background: rgba(0,0,0,0.4); border: none; color: rgba(255,255,255,0.5); width: 40px; height: 40px; border-radius: 10px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  #theme-nav { position: absolute; bottom: 24px; left: 24px; z-index: 200; display: flex; flex-direction: row; align-items: center; gap: 8px; }
+  .theme-btn-up, .theme-btn-down { background: rgba(0,0,0,0.5); border: 0.5px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7); width: 44px; height: 44px; border-radius: 50%; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .theme-btn-up:disabled, .theme-btn-down:disabled { opacity: 0.2; pointer-events: none; }
+  #theme-indicator { position: absolute; bottom: 100px; left: 28px; z-index: 200; display: flex; gap: 6px; }
+  .theme-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.25); transition: background 0.2s, transform 0.2s; }
+  .theme-dot.active { background: #fff; transform: scale(1.3); }
+  #theme-label { position: absolute; bottom: 80px; left: 28px; z-index: 200; font-size: 11px; color: rgba(255,255,255,0.35); letter-spacing: 2px; text-transform: uppercase; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div id="app">
+  <audio id="alarm" src="Summer Thyme - Jeremy Korpas.mp3" preload="auto"></audio>
+
+  <div class="theme active" id="theme-0">
+    <div class="slide active" id="t0-slide-1"><img src="위패밀리_러브-01.jpg" alt="러브 1"></div>
+    <div class="slide" id="t0-slide-2"><img src="위패밀리_러브-02.jpg" alt="러브 2"></div>
+    <div class="slide" id="t0-slide-3"><img src="위패밀리_러브-03.jpg" alt="러브 3"></div>
+    <div class="slide" id="t0-slide-4"><img src="위패밀리_러브-04.jpg" alt="러브 4"></div>
+    <div class="slide" id="t0-slide-5"><img src="위패밀리_러브-05.jpg" alt="러브 5"></div>
+    <button class="nav-prev" id="t0-prev" onclick="changeSlide(0,-1)" disabled>&#8249;</button>
+    <button class="nav-next" id="t0-next" onclick="changeSlide(0,1)">&#8250;</button>
+    <div class="dots" id="t0-dots"></div>
+    <div class="slide-counter" id="t0-counter">1 / 5</div>
+  </div>
+
+  <div class="theme" id="theme-1">
+    <div class="slide active" id="t1-slide-1"><img src="위패밀리_아트-01.jpg" alt="아트 1"></div>
+    <div class="slide" id="t1-slide-2"><img src="위패밀리_아트-02.jpg" alt="아트 2"></div>
+    <div class="slide" id="t1-slide-3"><img src="위패밀리_아트-03.jpg" alt="아트 3"></div>
+    <div class="slide" id="t1-slide-4"><img src="위패밀리_아트-04.jpg" alt="아트 4"></div>
+    <div class="slide" id="t1-slide-5"><img src="위패밀리_아트-05.jpg" alt="아트 5"></div>
+    <div class="slide" id="t1-slide-6"><img src="위패밀리_아트-06.jpg" alt="아트 6"></div>
+    <button class="nav-prev" id="t1-prev" onclick="changeSlide(1,-1)" disabled>&#8249;</button>
+    <button class="nav-next" id="t1-next" onclick="changeSlide(1,1)">&#8250;</button>
+    <div class="dots" id="t1-dots"></div>
+    <div class="slide-counter" id="t1-counter">1 / 6</div>
+  </div>
+
+  <div class="theme" id="theme-2">
+    <div class="slide active" id="t2-slide-1"><img src="위패밀리_워크-01.jpg" alt="워크 1"></div>
+    <div class="slide" id="t2-slide-2"><img src="위패밀리_워크-02.jpg" alt="워크 2"></div>
+    <div class="slide" id="t2-slide-3"><img src="위패밀리_워크-03.jpg" alt="워크 3"></div>
+    <div class="slide" id="t2-slide-4"><img src="위패밀리_워크-04.jpg" alt="워크 4"></div>
+    <div class="slide" id="t2-slide-5"><img src="위패밀리_워크-05.jpg" alt="워크 5"></div>
+    <button class="nav-prev" id="t2-prev" onclick="changeSlide(2,-1)" disabled>&#8249;</button>
+    <button class="nav-next" id="t2-next" onclick="changeSlide(2,1)">&#8250;</button>
+    <div class="dots" id="t2-dots"></div>
+    <div class="slide-counter" id="t2-counter">1 / 5</div>
+  </div>
+
+  <div id="timer-selector">
+    <button class="timer-sel-btn" id="sel-1" onclick="selectTimer(1)">1:00</button>
+    <button class="timer-sel-btn" id="sel-2" onclick="selectTimer(2)">2:30</button>
+  </div>
+
+  <div id="timer-box">
+    <div id="panel-1">
+      <div class="timer-display" id="t1-disp">1:00</div>
+      <div class="timer-bar" style="margin-top:10px"><div class="timer-fill" id="t1-fill"></div></div>
+      <div class="timer-controls" style="margin-top:10px">
+        <button class="t-btn" id="t1-pause" onclick="toggleTimer1()">시작</button>
+        <button class="t-btn" onclick="resetTimer1()">리셋</button>
+      </div>
+    </div>
+    <div id="panel-2" style="display:none">
+      <div class="timer-display" id="t2-disp">2:30</div>
+      <div class="timer-bar" style="margin-top:10px"><div class="timer-fill" id="t2-fill"></div></div>
+      <div class="timer-controls" style="margin-top:10px">
+        <button class="t-btn" id="t2-pause" onclick="toggleTimer2()">시작</button>
+        <button class="t-btn" onclick="resetTimer2()">리셋</button>
+      </div>
+    </div>
+  </div>
+
+  <button id="fullscreen-btn" onclick="toggleFullscreen()">&#x26F6;</button>
+
+  <div id="theme-indicator">
+    <div class="theme-dot active"></div>
+    <div class="theme-dot"></div>
+    <div class="theme-dot"></div>
+  </div>
+  <div id="theme-label">LOVE</div>
+  <div id="theme-nav">
+    <button class="theme-btn-up" id="btn-up" onclick="changeTheme(-1)" disabled>&#8593;</button>
+    <button class="theme-btn-down" id="btn-down" onclick="changeTheme(1)">&#8595;</button>
+  </div>
+
+</div>
+<script>
+  const THEMES = [{ name:'LOVE', total:5 }, { name:'ART', total:6 }, { name:'WORK', total:5 }];
+  const slideIdx = [0,0,0];
+  let currentTheme = 0, touchStartX = 0, touchStartY = 0;
+
+  THEMES.forEach((th, ti) => {
+    const dotsEl = document.getElementById('t'+ti+'-dots');
+    for (let i = 0; i < th.total; i++) {
+      const d = document.createElement('div');
+      d.className = 'dot'+(i===0?' active':'');
+      d.onclick = () => goToSlide(ti, i);
+      dotsEl.appendChild(d);
+    }
+  });
+
+  function goToSlide(ti, idx) {
+    document.getElementById('t'+ti+'-slide-'+(slideIdx[ti]+1)).classList.remove('active');
+    slideIdx[ti] = idx;
+    document.getElementById('t'+ti+'-slide-'+(idx+1)).classList.add('active');
+    document.querySelectorAll('#t'+ti+'-dots .dot').forEach((d,i) => d.classList.toggle('active', i===idx));
+    document.getElementById('t'+ti+'-prev').disabled = idx===0;
+    document.getElementById('t'+ti+'-next').disabled = idx===THEMES[ti].total-1;
+    document.getElementById('t'+ti+'-counter').textContent = (idx+1)+' / '+THEMES[ti].total;
+  }
+
+  function changeSlide(ti, dir) { const n=slideIdx[ti]+dir; if(n>=0&&n<THEMES[ti].total) goToSlide(ti,n); }
+
+  function changeTheme(dir) {
+    const next = currentTheme+dir;
+    if(next<0||next>=THEMES.length) return;
+    document.getElementById('theme-'+currentTheme).classList.remove('active');
+    currentTheme = next;
+    goToSlide(currentTheme, 0);
+    document.getElementById('theme-'+currentTheme).classList.add('active');
+    document.querySelectorAll('.theme-dot').forEach((d,i) => d.classList.toggle('active', i===currentTheme));
+    document.getElementById('theme-label').textContent = THEMES[currentTheme].name;
+    document.getElementById('btn-up').disabled = currentTheme===0;
+    document.getElementById('btn-down').disabled = currentTheme===THEMES.length-1;
+  }
+
+  function toggleFullscreen() {
+    if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+    else document.exitFullscreen();
+  }
+
+  document.addEventListener('keydown', e => {
+    if(e.key==='ArrowRight') changeSlide(currentTheme,1);
+    if(e.key==='ArrowLeft') changeSlide(currentTheme,-1);
+    if(e.key==='ArrowDown') changeTheme(1);
+    if(e.key==='ArrowUp') changeTheme(-1);
+    if(e.key==='f'||e.key==='F') toggleFullscreen();
+  });
+
+  document.getElementById('app').addEventListener('touchstart', e => {
+    touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY;
+  }, {passive:true});
+  document.getElementById('app').addEventListener('touchend', e => {
+    const dx=touchStartX-e.changedTouches[0].clientX, dy=touchStartY-e.changedTouches[0].clientY;
+    if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50) changeSlide(currentTheme,dx>0?1:-1);
+    if(Math.abs(dy)>Math.abs(dx)&&Math.abs(dy)>50) changeTheme(dy>0?1:-1);
+  }, {passive:true});
+
+  function stopAlarm() {
+    const a = document.getElementById("alarm");
+    a.pause();
+    a.currentTime = 0;
+  }
+
+  let activeTimer = 0;
+  function selectTimer(n) {
+    stopAlarm();
+    const box = document.getElementById('timer-box');
+    if(activeTimer===n) {
+      box.classList.remove('open');
+      document.getElementById('sel-1').classList.remove('active');
+      document.getElementById('sel-2').classList.remove('active');
+      activeTimer = 0; return;
+    }
+    activeTimer = n;
+    box.classList.add('open');
+    document.getElementById('panel-1').style.display = n===1 ? '' : 'none';
+    document.getElementById('panel-2').style.display = n===2 ? '' : 'none';
+    document.getElementById('sel-1').classList.toggle('active', n===1);
+    document.getElementById('sel-2').classList.toggle('active', n===2);
+  }
+
+  const DUR1=60; let tl1=DUR1, run1=false, int1=null;
+  function updateT1() {
+    const m=Math.floor(tl1/60), s=tl1%60;
+    const disp=document.getElementById('t1-disp'), fill=document.getElementById('t1-fill');
+    disp.textContent=m+':'+String(s).padStart(2,'0');
+    fill.style.width=(tl1/DUR1*100)+'%';
+    const st=tl1<=10?'danger':tl1<=20?'warning':'';
+    disp.className='timer-display'+(st?' '+st:'');
+    fill.className='timer-fill'+(st?' '+st:'');
+    document.getElementById('t1-pause').textContent=run1?'일시정지':'시작';
+  }
+  function startT1() { int1=setInterval(()=>{ if(tl1>0){tl1--;updateT1();}else{clearInterval(int1);run1=false;updateT1();document.getElementById("alarm").play();} },1000); }
+  function toggleTimer1() { if(run1){clearInterval(int1);run1=false;}else if(tl1>0){run1=true;startT1();} updateT1(); }
+  function resetTimer1() { clearInterval(int1);tl1=DUR1;run1=false;updateT1(); }
+
+  const DUR2=150; let tl2=DUR2, run2=false, int2=null;
+  function updateT2() {
+    const m=Math.floor(tl2/60), s=tl2%60;
+    const disp=document.getElementById('t2-disp'), fill=document.getElementById('t2-fill');
+    disp.textContent=m+':'+String(s).padStart(2,'0');
+    fill.style.width=(tl2/DUR2*100)+'%';
+    const st=tl2<=20?'danger':tl2<=40?'warning':'';
+    disp.className='timer-display'+(st?' '+st:'');
+    fill.className='timer-fill'+(st?' '+st:'');
+    document.getElementById('t2-pause').textContent=run2?'일시정지':'시작';
+  }
+  function startT2() { int2=setInterval(()=>{ if(tl2>0){tl2--;updateT2();}else{clearInterval(int2);run2=false;updateT2();document.getElementById("alarm").play();} },1000); }
+  function toggleTimer2() { if(run2){clearInterval(int2);run2=false;}else if(tl2>0){run2=true;startT2();} updateT2(); }
+  function resetTimer2() { clearInterval(int2);tl2=DUR2;run2=false;updateT2(); }
+
+
+  // preload all images
+  const allImages = [
+    '위패밀리_러브-01.jpg','위패밀리_러브-02.jpg','위패밀리_러브-03.jpg','위패밀리_러브-04.jpg','위패밀리_러브-05.jpg',
+    '위패밀리_아트-01.jpg','위패밀리_아트-02.jpg','위패밀리_아트-03.jpg','위패밀리_아트-04.jpg','위패밀리_아트-05.jpg','위패밀리_아트-06.jpg',
+    '위패밀리_워크-01.jpg','위패밀리_워크-02.jpg','위패밀리_워크-03.jpg','위패밀리_워크-04.jpg','위패밀리_워크-05.jpg'
+  ];
+  allImages.forEach(src => { const img = new Image(); img.src = src; });
+</script>
+</body>
+</html>
